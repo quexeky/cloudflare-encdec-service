@@ -1,9 +1,9 @@
 import { Bool, OpenAPIRoute } from "chanfana";
 import { z } from "zod";
-import { Task } from "../types";
-import {createDecipheriv, randomFill, scrypt} from "node:crypto";
+import Buffer from "node:buffer";
+import crypto from "node:crypto";
 
-const algorithm = 'aes-256-ctr';
+const algorithm = 'AES-CBC';
 
 export class Decrypt extends OpenAPIRoute {
     schema = {
@@ -13,25 +13,8 @@ export class Decrypt extends OpenAPIRoute {
                 content: {
                     "application/json": {
                         schema: z.object({
-                            iv: z.string().length(32),
+                            iv: z.string(),
                             encrypted: z.string()
-                        }),
-                    },
-                },
-            },
-        },
-        responses: {
-            "200": {
-                description: "Returns decrypted data",
-                content: {
-                    "application/json": {
-                        schema: z.object({
-                            series: z.object({
-                                success: Bool(),
-                                result: z.object({
-                                    data: z.string(),
-                                }),
-                            }),
                         }),
                     },
                 },
@@ -45,12 +28,7 @@ export class Decrypt extends OpenAPIRoute {
 
         const key = c.env.SECRET
 
-        // Retrieve the validated request body
-        const iv = Buffer.from(data.body.iv, "hex");
-
-        const decipher = createDecipheriv(algorithm, key, iv);
-        let decrypted = decipher.update(data.body.encrypted, "hex", "hex");
-        decrypted += decipher.final("hex");
+        const decrypted = await aesDecrypt(data.body.encrypted, key, data.body.iv);
 
         return {
             success: true,
@@ -59,4 +37,19 @@ export class Decrypt extends OpenAPIRoute {
             }
         };
     }
+}
+
+async function aesDecrypt(ciphertext: string, key: string, iv: string) {
+    const dec = new TextDecoder();
+
+    const key_buffer = Buffer.Buffer.from(key, 'hex');
+
+    const cryptoKey = await crypto.webcrypto.subtle.importKey("raw", key_buffer, algorithm, true, ["decrypt"]);
+
+    const plaintext = await crypto.subtle.decrypt({
+        name: algorithm,
+        iv: Buffer.Buffer.from(iv, 'hex'),
+    }, cryptoKey, Buffer.Buffer.from(ciphertext, 'hex'));
+
+    return dec.decode(plaintext);
 }

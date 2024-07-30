@@ -1,42 +1,22 @@
 import { Bool, OpenAPIRoute } from "chanfana";
 import { z } from "zod";
-import { Task } from "../types";
-import {createCipheriv, randomFill, scrypt} from "node:crypto";
-
-const algorithm = 'aes-256-ctr';
+import crypto from 'node:crypto';
+import Buffer from "node:buffer";
+const algorithm = 'AES-CBC';
 
 export class Encrypt extends OpenAPIRoute {
     schema = {
-        summary: "Decrypts given data using the secret key",
         request: {
             body: {
                 content: {
-                    "application/json": {
+                    'application/json': {
                         schema: z.object({
-                            encrypted: z.string()
-                        }),
-                    },
-                },
-            },
-        },
-        responses: {
-            "200": {
-                description: "Returns decrypted data",
-                content: {
-                    "application/json": {
-                        schema: z.object({
-                            series: z.object({
-                                success: Bool(),
-                                result: z.object({
-                                    data: z.string(),
-                                    iv: z.string().length(32),
-                                }),
-                            }),
-                        }),
-                    },
-                },
-            },
-        },
+                            plaintext: z.string(), // 512 bit password hash
+                        })
+                    }
+                }
+            }
+        }
     };
 
     async handle(c) {
@@ -45,22 +25,43 @@ export class Encrypt extends OpenAPIRoute {
 
         const key = c.env.SECRET
 
-        // Retrieve the validated request body
-        const iv = Buffer.alloc(128);
-
-        crypto.getRandomValues(iv);
-
-
-        const cipher = createCipheriv(algorithm, key, iv);
-        let encrypted = cipher.update(data.body.encrypted, "hex", "hex");
-        encrypted += cipher.final("hex");
+        const { iv, ciphertext } = await aesEncrypt(data.body.plaintext, key);
 
         return {
             success: true,
             result: {
-                data: encrypted,
+                data: ciphertext,
                 iv: iv
             }
         };
     }
+}
+
+async function aesEncrypt(plaintext: string, key: string) {
+    const ec = new TextEncoder();
+
+    const key_buffer = Buffer.Buffer.from(key, 'hex');
+
+    const cryptoKey = await crypto.webcrypto.subtle.importKey("raw", key_buffer, algorithm, true, ["encrypt"]);
+
+    const iv = crypto.webcrypto.getRandomValues(new Uint8Array(16));
+
+    const ciphertext = await crypto.webcrypto.subtle.encrypt({
+        name: algorithm,
+        iv,
+    }, cryptoKey, ec.encode(plaintext));
+
+    console.log(ec, cryptoKey, iv, ciphertext);
+
+    return {
+        iv: toHexString(iv),
+        ciphertext: toHexString(ciphertext),
+    };
+}
+function toHexString(byteArray: ArrayBuffer) {
+    let s = '';
+    new Uint8Array(byteArray).forEach(function(byte) {
+        s += ('0' + (byte & 0xFF).toString(16)).slice(-2);
+    });
+    return s;
 }

@@ -12,7 +12,7 @@ const openapi = fromHono(app, {
 });
 
 // Register OpenAPI endpoints
-openapi.get("/encrypt", Encrypt);
-openapi.get("/decrypt", Decrypt);
+openapi.post("/encrypt", Encrypt);
+openapi.post("/decrypt", Decrypt);
 // Export the Hono app
 export default app;
