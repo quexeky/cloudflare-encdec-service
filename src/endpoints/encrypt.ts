@@ -1,4 +1,4 @@
-import { Bool, OpenAPIRoute } from "chanfana";
+import { OpenAPIRoute } from "chanfana";
 import { z } from "zod";
 import crypto from 'node:crypto';
 import Buffer from "node:buffer";
@@ -11,7 +11,7 @@ export class Encrypt extends OpenAPIRoute {
                 content: {
                     'application/json': {
                         schema: z.object({
-                            plaintext: z.string(), // 512 bit password hash
+                            plaintext: z.string().regex(/[0-9A-Fa-f]{6}/g), // Hex string
                         })
                     }
                 }
@@ -20,7 +20,6 @@ export class Encrypt extends OpenAPIRoute {
     };
 
     async handle(c) {
-        // Get validated data
         const data = await this.getValidatedData<typeof this.schema>();
 
         const key = c.env.SECRET
@@ -30,7 +29,7 @@ export class Encrypt extends OpenAPIRoute {
         return {
             success: true,
             result: {
-                data: ciphertext,
+                ciphertext: ciphertext,
                 iv: iv
             }
         };
