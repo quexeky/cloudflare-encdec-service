@@ -1,4 +1,4 @@
-import { Bool, OpenAPIRoute } from "chanfana";
+import { OpenAPIRoute } from "chanfana";
 import { z } from "zod";
 import Buffer from "node:buffer";
 import crypto from "node:crypto";
@@ -13,8 +13,8 @@ export class Decrypt extends OpenAPIRoute {
                 content: {
                     "application/json": {
                         schema: z.object({
-                            iv: z.string(),
-                            encrypted: z.string()
+                            ciphertext: z.string().regex(/[0-9A-Fa-f]{6}/g), // Require both strings to be hex
+                            iv: z.string().regex(/[0-9A-Fa-f]{6}/g),
                         }),
                     },
                 },
@@ -28,14 +28,22 @@ export class Decrypt extends OpenAPIRoute {
 
         const key = c.env.SECRET
 
-        const decrypted = await aesDecrypt(data.body.encrypted, key, data.body.iv);
+        try {
+            const decrypted = await aesDecrypt(data.body.ciphertext, key, data.body.iv);
 
-        return {
-            success: true,
-            result: {
-                data: decrypted
+            return {
+                success: true,
+                result: {
+                    plaintext: decrypted
+                }
+            };
+
+        }
+        catch (e) {
+            return {
+                success: false,
             }
-        };
+        }
     }
 }
 
