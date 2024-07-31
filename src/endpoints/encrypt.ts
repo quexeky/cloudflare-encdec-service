@@ -11,7 +11,7 @@ export class Encrypt extends OpenAPIRoute {
                 content: {
                     'application/json': {
                         schema: z.object({
-                            plaintext: z.string(), // 512 bit password hash
+                            plaintext: z.string().base64(), // 512 bit password hash
                         })
                     }
                 }
@@ -54,8 +54,8 @@ async function aesEncrypt(plaintext: string, key: string) {
     console.log(ec, cryptoKey, iv, ciphertext);
 
     return {
-        iv: toHexString(iv),
-        ciphertext: toHexString(ciphertext),
+        iv: Buffer.Buffer.from(iv).toString('base64'),
+        ciphertext: Buffer.Buffer.from(ciphertext).toString('base64'),
     };
 }
 function toHexString(byteArray: ArrayBuffer) {
